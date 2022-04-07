@@ -65,9 +65,17 @@ def normalize_notification_preview(msg):
     return '\n'.join(f'> {line}' for line in lines)
 
 
+def get_chat_name(chat, my_id, all_people_store):
+    if '_' in chat.key:
+        # chat key is in the format: "19:<id1>_<id2>@unq.gbl.spaces" (order depends on who started the conversation)
+        return get_chat_participant_name(chat, my_id, all_people_store)
+    else:
+        # group chat key doesn't contain a '_'
+        return get_chat_group_name(chat, my_id, all_people_store)
+
+
 def get_chat_participant_name(chat, my_id, all_people_store):
     ''' get name of chat participant (name of other party) '''
-    # the key is in the format: "19:<id1>_<id2>@unq.gbl.spaces" (order depends on who started the conversation)
     id1, id2 = re.match('\d+:(.+)_(.+)@.+', chat.key).groups()
     
     if my_id == id1:
@@ -75,7 +83,7 @@ def get_chat_participant_name(chat, my_id, all_people_store):
     elif my_id == id2:
         part_id = id1
     else:
-        assert False, 'invalid chat key' # maybe a group chat, wasn't implemented yet
+        assert False, 'invalid chat key'
     
     people_key = f'8:orgid:{part_id}'
     info = next((p for p in all_people_store if p.key == people_key), None)
@@ -90,6 +98,26 @@ def get_chat_participant_name(chat, my_id, all_people_store):
     
     name = info.value['displayName']
     return ('BOT:' if bot else '') + name
+
+
+def get_chat_group_name(chat, my_id, all_people_store):
+    ''' get name of chat (comma delimited list of names, except mine) '''
+    members = chat.value['members']
+    member_ids = []
+    for m in members:
+        # there seems to be a difference between teams versions
+        if isinstance(m, tuple):
+            member_ids.append(m[1]['id'])
+        elif isinstance(m, dict):
+            member_ids.append(m['id'])
+    
+    member_names = []
+    for m in member_ids:
+        if my_id not in m:
+            m_info = next(p for p in all_people_store if p.key == m)
+            m_name = m_info.value['displayName']
+            member_names.append(m_name)
+    return ', '.join(member_names)
 
 
 def filter_duplicate_entries(entries):
@@ -123,7 +151,7 @@ def get_last_chats(all_convs, all_replies, my_id, all_people):
     chat_convs = chat_convs[:NUM_OF_CHATS]
     ret = {}
     for chat in chat_convs:
-        name = get_chat_participant_name(chat, my_id, all_people)
+        name = get_chat_name(chat, my_id, all_people)
         ret[name] = []
         chat_messages = [r for r in all_replies if r.key[0] == chat.key]
         chat_messages.sort(key=(lambda n: n.value['latestDeliveryTime']))
