@@ -203,7 +203,41 @@ def add_task(token, list_id, title, notes):
          'notes': notes})
 
 
+def update_gtasks(token_service, update_time, chat_messages, notifications, meeting_messages):
+    ''' create the g tasks list and tasks with the updates '''
+    token = token_service.get_token()
+    tasks = []
+    
+    new_list = get_cleared_list(token, TASKS_LIST_NAME)
+    tasks.append(('Update time: ' + update_time, ''))
+    
+    for chat in chat_messages:
+        task_title = f'Chat: {chat}'
+        task_notes = '\n\n'.join(f'{msg.arrival_time} - {msg.user}: {msg.content}' for msg in chat_messages[chat])
+        tasks.append((task_title, task_notes))
+    
+    task_title = 'Notifications'
+    task_notes = ''
+    for notification in notifications:
+        task_notes += f'{notification.arrival_time} - {notification.user} ({notification.activity_type}){" on " + notification.topic if notification.topic else ""}:\n'
+        if notification.preview:
+            task_notes += notification.preview + '\n'
+        task_notes += '\n'
+    tasks.append((task_title, task_notes))
+    
+    for topic in meeting_messages:
+        task_title = f'Meeting: {topic}'
+        task_notes = '\n\n'.join(f'{msg.arrival_time} - {msg.user}: {msg.content}' for msg in meeting_messages[topic])
+        tasks.append((task_title, task_notes))
+    
+    for task in reversed(tasks): # task are added to the top, so reverse
+        add_task(token, new_list['id'], task[0], task[1])
+
+
+_prev_data = None
 def main():
+    global _prev_data
+    
     print('Starting')
     config = Config()
     try:
@@ -214,38 +248,14 @@ def main():
         exit('Config created, please restart app')
     token_service = GoogleTokenService(config.client_id, config.client_secret, config.refresh_token)
     while True:
-        chat_messages, notifications, meeting_messages = ms_teams_reader.get_last_updates()
-        token = token_service.get_token()
-        tasks = []
-        
-        new_list = get_cleared_list(token, TASKS_LIST_NAME)
-        
+        updates = ms_teams_reader.get_last_updates()
         update_time = datetime.datetime.fromtimestamp(time.time()).strftime('%d/%m %H:%M')
-        tasks.append(('Update time: ' + update_time, ''))
-        
-        for chat in chat_messages:
-            task_title = f'Chat: {chat}'
-            task_notes = '\n\n'.join(f'{msg.arrival_time} - {msg.user}: {msg.content}' for msg in chat_messages[chat])
-            tasks.append((task_title, task_notes))
-
-        task_title = 'Notifications'
-        task_notes = ''
-        for notification in notifications:
-            task_notes += f'{notification.arrival_time} - {notification.user} ({notification.activity_type}){" on " + notification.topic if notification.topic else ""}:\n'
-            if notification.preview:
-                task_notes += notification.preview + '\n'
-            task_notes += '\n'
-        tasks.append((task_title, task_notes))
-
-        for topic in meeting_messages:
-            task_title = f'Meeting: {topic}'
-            task_notes = '\n\n'.join(f'{msg.arrival_time} - {msg.user}: {msg.content}' for msg in meeting_messages[topic])
-            tasks.append((task_title, task_notes))
-        
-        for task in reversed(tasks): # task are added to the top, so reverse
-            add_task(token, new_list['id'], task[0], task[1])
-        
-        print('Updated at: ' + update_time)
+        if updates == _prev_data:
+            print('No updated at: ' + update_time)
+        else:
+            update_gtasks(token_service, update_time, *updates)
+            _prev_data = updates
+            print('Updated at: ' + update_time)
         time.sleep(UPDATE_INTERVAL_SEC)
 
 
