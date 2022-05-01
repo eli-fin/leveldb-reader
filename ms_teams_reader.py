@@ -181,7 +181,10 @@ def get_last_notifications(all_convs, all_replies):
         msg_map = list(notification.value['messageMap'].values())[0]
         topic = msg_map['properties']['activity'].get('sourceThreadTopic', '').strip()
         user = msg_map['properties']['activity'].get('sourceUserImDisplayName', '<bot>') # looks like when it's a bot, it doesn't have this field
-        activity_type = msg_map['properties']['activity']['activitySubtype']
+        activity_type = msg_map['properties']['activity']['activityType']
+        activity_subtype = msg_map['properties']['activity'].get('activitySubtype')
+        if activity_subtype:
+            activity_type += ' - ' + activity_subtype
         arrival_time = msg_map['originalArrivalTime']
         preview = msg_map['properties']['activity']['messagePreview']
         preview = normalize_notification_preview(preview)
