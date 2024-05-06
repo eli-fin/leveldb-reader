@@ -94,9 +94,9 @@ async function getKey(db_info, obj_store, key) {
 }
 
 
-// see if an object contains a string
+// see if an object includes a string
 function objContaines(val, keyword) {
-    return !!val && JSON.stringify(val).toLowerCase().contains(keyword.toLowerCase())
+    return !!val && JSON.stringify(val).toLowerCase().includes(keyword.toLowerCase())
 }
 
 
@@ -147,9 +147,9 @@ async function getAllDbsAndStores() {
 async function getMessagesOfChat(my_name, other_name) {
     var all_dbs = await getAllDbsAndStores()
     
-    // find db with prefix followd by 35 (uuid length), since there are a few with the same prefix
+    // find db with prefix followed by 72 (2 uuid's), since there are a few with the same prefix
     var all_users_db_name_prefix = 'skypexspaces-'
-    var all_users_db_info = all_dbs.filter(db=>db.name.substr(0, db.name.length-35-1) == all_users_db_name_prefix)[0]
+    var all_users_db_info = all_dbs.filter(db=>db.name.substr(0, db.name.length-72-1) == all_users_db_name_prefix)[0]
     var all_users_db = (await getEntireStore(all_users_db_info, 'people')).filter(u=>u.value.type=='person')
     
     // get info for me and others
@@ -157,13 +157,13 @@ async function getMessagesOfChat(my_name, other_name) {
     var other_info = all_users_db.filter(u=>u.value.displayName == other_name)[0]
     
     // find replies db
-    var replies_db_info = all_dbs.filter(db=>db.name.contains('replychain-manager'))[0]
+    var replies_db_info = all_dbs.filter(db=>db.name.includes('replychain-manager'))[0]
     var replies_db = await getEntireStore(replies_db_info, 'replychains')
     
     // get list of our replies
     var me_and_other_replies = replies_db.filter(r=>{
         var key = r.key[0]
-        return key.contains(my_info.value.objectId) && key.contains(other_info.value.objectId)
+        return key.includes(my_info.value.objectId) && key.includes(other_info.value.objectId)
     })
     
     // sort by timestamp descending
